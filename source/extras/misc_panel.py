@@ -27,4 +27,25 @@ class SUB_PT_misc(Panel):
         row = layout.row(align=True)
         row.operator("sub.eye_material_custom_vector_31_modal")
 
+        # Add renaming tools operators (only available in Object mode)
+        layout.separator()
+        box = layout.box()
+        box.label(text="Renaming Tools")
+        
+        # Rename Materials to Mesh button
+        row = box.row(align=True)
+        if context.mode == 'OBJECT':
+            row.operator("sub.rename_materials_to_mesh", text="Rename Materials to Mesh")
+        else:
+            row.enabled = False
+            row.operator("sub.rename_materials_to_mesh", text="Rename Materials to Mesh (Object Mode Only)")
+        
+        # Rename Textures to Material button
+        row = box.row(align=True)
+        if context.mode == 'OBJECT':
+            row.operator("sub.rename_textures_to_material", text="Rename Textures to Material")
+        else:
+            row.enabled = False
+            row.operator("sub.rename_textures_to_material", text="Rename Textures to Material (Object Mode Only)")
+
     
