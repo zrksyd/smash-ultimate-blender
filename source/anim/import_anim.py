@@ -96,7 +96,7 @@ class SUB_OP_import_anim(Operator):
             return False
         return True
     
-    def invoke(self, context, _event):
+    def invoke(self, context, event):
         self.first_blender_frame = context.scene.frame_start
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
@@ -134,13 +134,13 @@ class SUB_OP_import_anim(Operator):
 def poll_cameras(self, obj):
     return obj.type == 'CAMERA'
 
-def heirarchy_order(bone, reordered):
+def hierarchy_order(bone, reordered):
         if bone not in reordered:
             reordered.append(bone)
         for child in bone.children:
-            heirarchy_order(child, reordered)
+            hierarchy_order(child, reordered)
 
-def get_heirarchy_order(bone_list: list[bpy.types.PoseBone]) -> list[bpy.types.PoseBone]:
+def get_hierarchy_order(bone_list: list[bpy.types.PoseBone]) -> list[bpy.types.PoseBone]:
     root_bones: list[bpy.types.PoseBone] = []
     for bone in bone_list:
         if bone.parent is None:
@@ -180,17 +180,6 @@ class BoneTranslationFCurves():
         self.z.keyframe_points.foreach_set('co', [x for tup in self.z_stashed_values for x in tup])
 
 class BoneRotationFCurves():
-    '''
-    def __init__(self, fcurves, base_data_path, bone_name):
-        self.w: bpy.types.FCurve = fcurves.new(f'{base_data_path}.rotation_quaternion', index=0, action_group=f'{bone_name}')
-        self.x: bpy.types.FCurve = fcurves.new(f'{base_data_path}.rotation_quaternion', index=1, action_group=f'{bone_name}')
-        self.y: bpy.types.FCurve = fcurves.new(f'{base_data_path}.rotation_quaternion', index=2, action_group=f'{bone_name}')
-        self.z: bpy.types.FCurve = fcurves.new(f'{base_data_path}.rotation_quaternion', index=3, action_group=f'{bone_name}')
-        self.w_stashed_values: list[(int,float)] = []
-        self.x_stashed_values: list[(int,float)] = []
-        self.y_stashed_values: list[(int,float)] = []
-        self.z_stashed_values: list[(int,float)] = []
-    '''
     def __init__(self, fcurves, base_data_path, bone_name, values_length):
         self.w: bpy.types.FCurve = fcurves.new(f'{base_data_path}.rotation_quaternion', index=0, action_group=f'{bone_name}')
         self.x: bpy.types.FCurve = fcurves.new(f'{base_data_path}.rotation_quaternion', index=1, action_group=f'{bone_name}')
@@ -213,13 +202,6 @@ class BoneRotationFCurves():
             z = self.z_stashed_values[0][1]           
         q = Quaternion([w,x,y,z])
         return Matrix.Rotation(q.angle, 4, q.axis)
-    '''
-    def stash_keyframe_values_from_quaternion(self, index, frame, quaternion: Quaternion):
-        self.w_stashed_values.append((frame, quaternion.w))
-        self.x_stashed_values.append((frame, quaternion.x))
-        self.y_stashed_values.append((frame, quaternion.y))
-        self.z_stashed_values.append((frame, quaternion.z))
-    '''
     def stash_keyframe_values_from_quaternion(self, index, frame, quaternion: Quaternion):
         w,x,y,z = quaternion
         self.w_stashed_values[index] = [frame, w]
@@ -268,14 +250,6 @@ class BoneScaleFCurves():
         self.z.keyframe_points.foreach_set('co', [x for tup in self.z_stashed_values for x in tup])
 
 class BoneFCurves():
-    '''
-    def __init__(self, bone_name, fcurves):
-        self.bone_name: str = bone_name
-        self.base_data_path: str = f'pose.bones["{bone_name}"]'
-        self.translation = BoneTranslationFCurves(fcurves, bone_name)
-        self.rotation = BoneRotationFCurves(fcurves, self.base_data_path, bone_name)
-        self.scale = BoneScaleFCurves(fcurves, self.base_data_path, bone_name)
-    '''
     def __init__(self, bone_name, fcurves, values_length):
         self.bone_name: str = bone_name
         self.base_data_path: str = f'pose.bones["{bone_name}"]'
@@ -287,13 +261,6 @@ class BoneFCurves():
         rm = self.rotation.get_rotation_matrix(index)
         sm = self.scale.get_scale_matrix(index)
         return Matrix(tm @ rm @ sm)
-    '''
-    def stash_keyframe_set_from_matrix(self, frame, matrix: Matrix):
-        t, r, s = matrix.decompose()
-        self.translation.stash_keyframe_set_from_vector(frame, t)
-        self.rotation.stash_keyframe_values_from_quaternion(frame, r)
-        self.scale.stash_keyframe_set_from_vector(frame, s)
-    '''
     def stash_keyframe_set_from_matrix(self, index, frame, matrix: Matrix):
         t, r, s = matrix.decompose()
         self.translation.stash_keyframe_set_from_vector(index, frame, t)
@@ -330,7 +297,7 @@ def import_model_anim(context: bpy.types.Context, filepath: str,
     if transform_group:
         bones: list[bpy.types.PoseBone] = arma.pose.bones
         bone_to_node = {bones[n.name]:n for n in transform_group.nodes if n.name in bones}
-        reordered: list[bpy.types.PoseBone] = get_heirarchy_order(list(bones)) # Do this to gaurantee we never process a child before its parent
+        reordered: list[bpy.types.PoseBone] = get_hierarchy_order(list(bones)) # Do this to gaurantee we never process a child before its parent
         bone_to_fcurves = {b:BoneFCurves(b.name, arma.animation_data.action.fcurves, len(n.tracks[0].values)) for b,n in bone_to_node.items()} # only create fcurves for animated bones
 
         for index, frame in enumerate(range(scene.frame_start, scene.frame_end + 1)): # +1 because range() excludes the final value
@@ -771,16 +738,12 @@ def update_camera_properties(operator: bpy.types.Operator, camera:bpy.types.Obje
 
 def update_camera_transforms(camera: bpy.types.Object, transform_group, index, frame):
     value = transform_group.nodes[0].tracks[0].values[index]
-    rt = raw_translation = value.translation
-    rr = raw_rotation = value.rotation
-    rs = raw_scale = value.scale
-    rtm = raw_translation_matrix =  Matrix.Translation(rt)
-    rqr = raw_quaternion_rotation = Quaternion([rr[3], rr[0], rr[1], rr[2]])
-    rrm = raw_rotation_matrix = Matrix.Rotation(rqr.angle, 4, rqr.axis)
+    translation =  Matrix.Translation(value.translation)
+    quaternion = Quaternion([value.rotation[3], value.rotation[0], value.rotation[1], value.rotation[2]])
+    rotation = Matrix.Rotation(quaternion.angle, 4, quaternion.axis)
     # Blender doesn't have this built in for some reason.
-    rsm = raw_scale_matrix = Matrix.Diagonal((rs[0], rs[1], rs[2], 1.0))
+    scale = Matrix.Diagonal((value.scale[0], value.scale[1], value.scale[2], 1.0))
     axis_correction = Matrix.Rotation(math.radians(90), 4, 'X')   
-    fm = final_matrix = Matrix(axis_correction @ rtm @ rrm @ rsm)
-    camera.matrix_local = fm
+    camera.matrix_local = axis_correction @ translation @ rotation @ scale
     keyframe_insert_camera_locrotscale(camera, frame)
 

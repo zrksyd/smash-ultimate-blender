@@ -14,7 +14,7 @@ from bpy.props import IntProperty, StringProperty, BoolProperty
 from pathlib import Path
 
 from ...dependencies import ssbh_data_py
-from .import_anim import get_heirarchy_order
+from .import_anim import get_hierarchy_order
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -266,7 +266,7 @@ def export_model_anim_fast(context, operator: bpy.types.Operator, arma: bpy.type
         bone_name_to_rotation_values: dict[str, list[Rotation]] = {}
         bone_name_to_scale_values: dict[str, list[Scale]] = {}
         bone_to_rel_matrix_local = {}
-        reordered_pose_bones = get_heirarchy_order(list(arma.pose.bones))
+        reordered_pose_bones = get_hierarchy_order(list(arma.pose.bones))
 
         # Fill value dicts with default values. Not every bone will be animated, so for these the default values of a matrix basis will be needed
         for pose_bone in reordered_pose_bones:
