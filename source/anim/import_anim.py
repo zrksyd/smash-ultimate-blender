@@ -281,10 +281,12 @@ def import_model_anim(context: bpy.types.Context, filepath: str,
     arma: bpy.types.Object = context.object
     if arma.animation_data is None: # For the bones
         arma.animation_data_create()
-    arma.animation_data.action = bpy.data.actions.new(Path(filepath).name)
     if arma.data.animation_data is None: # For vis and mat tracks
         arma.data.animation_data_create()
-    arma.data.animation_data.action = bpy.data.actions.new(arma.name + ' ' + Path(filepath).name + ' SAP Data')
+
+    bone_action = bpy.data.actions.new(Path(filepath).name)
+    sap_action = bpy.data.actions.new(arma.name + ' ' + Path(filepath).name + ' SAP Data')
+
     # Blender frame range setup
     scene = context.scene
     frame_count = int(ssbh_anim_data.final_frame_index + 1)
@@ -298,7 +300,7 @@ def import_model_anim(context: bpy.types.Context, filepath: str,
         bones: list[bpy.types.PoseBone] = arma.pose.bones
         bone_to_node = {bones[n.name]:n for n in transform_group.nodes if n.name in bones}
         reordered: list[bpy.types.PoseBone] = get_hierarchy_order(list(bones)) # Do this to gaurantee we never process a child before its parent
-        bone_to_fcurves = {b:BoneFCurves(b.name, arma.animation_data.action.fcurves, len(n.tracks[0].values)) for b,n in bone_to_node.items()} # only create fcurves for animated bones
+        bone_to_fcurves = {b:BoneFCurves(b.name, bone_action.fcurves, len(n.tracks[0].values)) for b,n in bone_to_node.items()} # only create fcurves for animated bones
 
         for index, frame in enumerate(range(scene.frame_start, scene.frame_end + 1)): # +1 because range() excludes the final value
             for bone in reordered:
@@ -347,7 +349,7 @@ def import_model_anim(context: bpy.types.Context, filepath: str,
             # Setup FCurve
             sub_vis_track_entry_index = sap.vis_track_entries.find(sub_vis_track_entry.name)
             data_path = f'sub_anim_properties.vis_track_entries[{sub_vis_track_entry_index}].value'
-            fcurve = arma.data.animation_data.action.fcurves.new(data_path, action_group='Visibility')
+            fcurve = sap_action.fcurves.new(data_path, action_group='Visibility')
             # Now create and set the keyframe points
             last_value = None
             for index, value in enumerate(node.tracks[0].values):
@@ -395,7 +397,7 @@ def import_model_anim(context: bpy.types.Context, filepath: str,
                     data_path=f'sub_anim_properties.mat_tracks[{mat_track_index}].properties[{prop_index}].custom_vector'
                     for index in (0,1,2,3):
                         vector_index_values = [vector[index] for vector in track.values]
-                        fcurve = arma.data.animation_data.action.fcurves.new(data_path, index=index, action_group=f'Material ({mat_track.name})')
+                        fcurve = sap_action.fcurves.new(data_path, index=index, action_group=f'Material ({mat_track.name})')
                         fcurve.keyframe_points.add(count=len(vector_index_values))
                         frame_and_value_flattened = []
                         for index, value in enumerate(vector_index_values):
@@ -403,7 +405,7 @@ def import_model_anim(context: bpy.types.Context, filepath: str,
                         fcurve.keyframe_points.foreach_set('co', frame_and_value_flattened)
                 elif prop.sub_type == 'FLOAT':
                     data_path=f'sub_anim_properties.mat_tracks[{mat_track_index}].properties[{prop_index}].custom_float'
-                    fcurve = arma.data.animation_data.action.fcurves.new(data_path, action_group=f'Material ({mat_track.name})')
+                    fcurve = sap_action.fcurves.new(data_path, action_group=f'Material ({mat_track.name})')
                     fcurve.keyframe_points.add(count=len(track.values))
                     frame_and_value_flattened = []
                     for index, value in enumerate(track.values):
@@ -411,7 +413,7 @@ def import_model_anim(context: bpy.types.Context, filepath: str,
                     fcurve.keyframe_points.foreach_set('co', frame_and_value_flattened)
                 elif prop.sub_type == 'BOOL':
                     data_path=f'sub_anim_properties.mat_tracks[{mat_track_index}].properties[{prop_index}].custom_bool'
-                    fcurve = arma.data.animation_data.action.fcurves.new(data_path, action_group=f'Material ({mat_track.name})')
+                    fcurve = sap_action.fcurves.new(data_path, action_group=f'Material ({mat_track.name})')
                     fcurve.keyframe_points.add(count=len(track.values))
                     frame_and_value_flattened = []
                     for index, value in enumerate(track.values):
@@ -419,7 +421,7 @@ def import_model_anim(context: bpy.types.Context, filepath: str,
                     fcurve.keyframe_points.foreach_set('co', frame_and_value_flattened)
                 elif prop.sub_type == 'PATTERN':
                     data_path=f'sub_anim_properties.mat_tracks[{mat_track_index}].properties[{prop_index}].pattern_index'
-                    fcurve = arma.data.animation_data.action.fcurves.new(data_path, action_group=f'Material ({mat_track.name})')
+                    fcurve = sap_action.fcurves.new(data_path, action_group=f'Material ({mat_track.name})')
                     fcurve.keyframe_points.add(count=len(track.values))
                     frame_and_value_flattened = []
                     for index, value in enumerate(track.values):
@@ -438,7 +440,7 @@ def import_model_anim(context: bpy.types.Context, filepath: str,
                             vector_index_values = [uv_transform.translate_u for uv_transform in track.values]
                         elif index == 4:
                             vector_index_values = [uv_transform.translate_v for uv_transform in track.values]
-                        fcurve = arma.data.animation_data.action.fcurves.new(data_path, index=index, action_group=f'Material ({mat_track.name})')
+                        fcurve = sap_action.fcurves.new(data_path, index=index, action_group=f'Material ({mat_track.name})')
                         fcurve.keyframe_points.add(count=len(vector_index_values))
                         frame_and_value_flattened = []
                         for index, value in enumerate(vector_index_values):
@@ -449,6 +451,11 @@ def import_model_anim(context: bpy.types.Context, filepath: str,
         setup_visibility_drivers(arma)
     if material_group:
         setup_material_drivers(arma)
+
+    # Assign actions at the end to ensure slots are assigned in Blender 4.4 or later.
+    arma.animation_data.action = bone_action
+    arma.data.animation_data.action = sap_action
+
 
 
 def get_raw_matrix(bone_to_node, bone, index, node) -> Matrix:
