@@ -185,7 +185,7 @@ def import_model(operator: bpy.types.Operator, context: bpy.types.Context):
 
     # Numpy provides much faster performance than Python lists.
     # TODO(SMG): This API for ssbh_data_py will likely have changes and improvements in the future.
-    ssbh_mesh = ssbh_data_py.mesh_data.read_mesh(str(numshb_name), use_numpy=True) if numshb_name != '' else None
+    ssbh_mesh = ssbh_data_py.mesh_data.read_mesh(str(numshb_name)) if numshb_name != '' else None
     ssbh_skel = ssbh_data_py.skel_data.read_skel(str(nusktb_name)) if numshb_name != '' else None
     ssbh_matl = ssbh_data_py.matl_data.read_matl(str(numatb_name)) if numatb_name != '' else None
     end = time.time()
@@ -459,7 +459,7 @@ def attach_armature_create_vertex_groups(mesh_obj, skel, armature, ssbh_mesh_obj
             else:
                 vertex_group = mesh_obj.vertex_groups.new(name=parent_bone.name)
 
-            vertex_group.add(ssbh_mesh_object.vertex_indices, 1.0, 'REPLACE')
+            vertex_group.add(ssbh_mesh_object.vertex_indices.tolist(), 1.0, 'REPLACE')
         else:
             # Set the vertex skin weights for each bone.
             # TODO: Is there a faster way than setting weights per vertex?
@@ -497,9 +497,9 @@ def create_blender_mesh(ssbh_mesh_object, skel, name_index_mat_dict):
     blender_mesh.vertices.foreach_set('co', positions.flatten())
 
     # Assume triangles, which is the only primitive used in Smash Ultimate.
-    vertex_indices = np.array(ssbh_mesh_object.vertex_indices, dtype=np.int32)
-    loop_start = np.arange(0, vertex_indices.shape[0], 3, dtype=np.int32)
-    loop_total = np.full(loop_start.shape[0], 3, dtype=np.int32)
+    vertex_indices = ssbh_mesh_object.vertex_indices.astype(dtype=np.uint32)
+    loop_start = np.arange(0, vertex_indices.shape[0], 3, dtype=np.uint32)
+    loop_total = np.full(loop_start.shape[0], 3, dtype=np.uint32)
 
     blender_mesh.loops.add(vertex_indices.shape[0])
     blender_mesh.loops.foreach_set('vertex_index', vertex_indices)
